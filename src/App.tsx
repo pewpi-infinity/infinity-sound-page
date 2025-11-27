@@ -36,6 +36,8 @@ function App() {
         src="https://archive.org/download/bob-seger-night-moves-1976-remastered-1999/02%20-%20Night%20Moves.mp3"
         loop
         autoPlay
+        playsInline
+        preload="auto"
       />
       <div className="text-center space-y-4">
         <h1 className="text-6xl font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent animate-gradient">
