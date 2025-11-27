@@ -4,48 +4,65 @@ import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
 
 function App() {
-  const audioRef = useRef<HTMLAudioElement>(null)
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const oscillatorRef = useRef<OscillatorNode | null>(null)
+  const gainNodeRef = useRef<GainNode | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
   const [volume, setVolume] = useState(50)
 
   useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = volume / 100
-      
-      const playAudio = async () => {
-        try {
-          await audioRef.current?.play()
-          setIsPlaying(true)
-        } catch (error) {
-          console.log('Autoplay prevented, user interaction required')
-        }
+    audioContextRef.current = new AudioContext()
+    gainNodeRef.current = audioContextRef.current.createGain()
+    gainNodeRef.current.connect(audioContextRef.current.destination)
+    gainNodeRef.current.gain.value = volume / 100
+
+    return () => {
+      if (oscillatorRef.current) {
+        oscillatorRef.current.stop()
       }
-      
-      playAudio()
+      if (audioContextRef.current) {
+        audioContextRef.current.close()
+      }
     }
   }, [])
 
   useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = volume / 100
+    if (gainNodeRef.current && !isMuted) {
+      gainNodeRef.current.gain.value = volume / 100
     }
-  }, [volume])
+  }, [volume, isMuted])
 
-  const togglePlayPause = () => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause()
-      } else {
-        audioRef.current.play()
+  const togglePlayPause = async () => {
+    if (!audioContextRef.current || !gainNodeRef.current) return
+
+    if (audioContextRef.current.state === 'suspended') {
+      await audioContextRef.current.resume()
+    }
+
+    if (isPlaying) {
+      if (oscillatorRef.current) {
+        oscillatorRef.current.stop()
+        oscillatorRef.current = null
       }
-      setIsPlaying(!isPlaying)
+      setIsPlaying(false)
+    } else {
+      oscillatorRef.current = audioContextRef.current.createOscillator()
+      oscillatorRef.current.type = 'sine'
+      oscillatorRef.current.frequency.setValueAtTime(440, audioContextRef.current.currentTime)
+      oscillatorRef.current.connect(gainNodeRef.current)
+      oscillatorRef.current.start()
+      setIsPlaying(true)
     }
   }
 
   const toggleMute = () => {
-    if (audioRef.current) {
-      audioRef.current.muted = !isMuted
+    if (gainNodeRef.current) {
+      if (isMuted) {
+        gainNodeRef.current.gain.value = volume / 100
+      } else {
+        gainNodeRef.current.gain.value = 0
+      }
       setIsMuted(!isMuted)
     }
   }
@@ -63,8 +80,8 @@ function App() {
         <div className="bg-card/50 backdrop-blur-sm rounded-2xl p-8 space-y-6 border border-border/50 shadow-2xl">
           <div className="space-y-2">
             <p className="text-xl font-semibold text-foreground">Now Playing</p>
-            <p className="text-lg text-primary">Night Moves</p>
-            <p className="text-sm text-muted-foreground">Bob Seger & The Silver Bullet Band</p>
+            <p className="text-lg text-primary">Ambient Tone</p>
+            <p className="text-sm text-muted-foreground">440 Hz Sine Wave</p>
           </div>
 
           <div className="flex items-center justify-center gap-4">
@@ -102,18 +119,9 @@ function App() {
         </div>
 
         <p className="text-sm text-muted-foreground italic">
-          Background music playing continuously
+          Click play to start the continuous ambient sound
         </p>
       </div>
-
-      <audio
-        ref={audioRef}
-        loop
-        preload="auto"
-      >
-        <source src="/src/assets/audio/night-moves.mp3" type="audio/mpeg" />
-        Your browser does not support the audio element.
-      </audio>
     </div>
   )
 }
